@@ -90,6 +90,8 @@
     .board-wrap {
       display: flex;
       justify-content: center;
+      overflow-x: auto;
+      padding-bottom: 2px;
     }
 
     canvas {
@@ -143,11 +145,7 @@
     <div class="toolbar">
       <select id="levelSelect" aria-label="Выбор уровня"></select>
 
-      <select id="sizeSelect" aria-label="Размер случайного поля">
-        <option value="5">5×5</option>
-        <option value="6" selected>6×6</option>
-        <option value="7">7×7</option>
-      </select>
+      <select id="sizeSelect" aria-label="Размер случайного поля"></select>
 
       <button id="randomBtn" class="primary">Новая случайная</button>
       <button id="undoBtn">Отменить</button>
@@ -174,9 +172,8 @@
       const clearBtn = document.getElementById("clearBtn");
       const checkBtn = document.getElementById("checkBtn");
 
-      const LEVELS = [
+      const STATIC_LEVELS = [
         {
-          name: "Уровень 1 · 3×3",
           rows: 3,
           cols: 3,
           clues: [
@@ -186,7 +183,6 @@
           ]
         },
         {
-          name: "Уровень 2 · 4×4",
           rows: 4,
           cols: 4,
           clues: [
@@ -198,7 +194,6 @@
           ]
         },
         {
-          name: "Уровень 3 · 5×5",
           rows: 5,
           cols: 5,
           clues: [
@@ -211,7 +206,6 @@
           ]
         },
         {
-          name: "Уровень 4 · 6×6",
           rows: 6,
           cols: 6,
           clues: [
@@ -225,6 +219,169 @@
           ]
         }
       ];
+
+      function mulberry32(seed) {
+        let a = seed >>> 0;
+
+        return function () {
+          a += 0x6D2B79F5;
+
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function randInt(rng, min, max) {
+        return Math.floor(rng() * (max - min + 1)) + min;
+      }
+
+      function getMaxArea(size) {
+        if (size <= 3) return 4;
+        if (size <= 5) return 8;
+        if (size <= 6) return 9;
+        if (size <= 8) return 14;
+        if (size <= 10) return 18;
+        if (size <= 13) return 24;
+        if (size <= 16) return 32;
+        if (size <= 18) return 36;
+        return 42;
+      }
+
+      function randomPartition(r, c, h, w, maxArea, rng) {
+        const area = h * w;
+
+        if (area <= 1) {
+          return [{ r, c, h, w }];
+        }
+
+        if (area <= maxArea) {
+          if (area <= 3) {
+            return [{ r, c, h, w }];
+          }
+
+          const ratio = area / maxArea;
+          let stopChance;
+
+          if (ratio > 0.65) {
+            stopChance = 0.72;
+          } else if (ratio > 0.35) {
+            stopChance = 0.45;
+          } else {
+            stopChance = 0.22;
+          }
+
+          if (rng() < stopChance) {
+            return [{ r, c, h, w }];
+          }
+        }
+
+        let horizontal;
+
+        if (h === 1) {
+          horizontal = false;
+        } else if (w === 1) {
+          horizontal = true;
+        } else if (h > w) {
+          horizontal = rng() < 0.72;
+        } else if (w > h) {
+          horizontal = rng() < 0.28;
+        } else {
+          horizontal = rng() < 0.5;
+        }
+
+        if (horizontal) {
+          const split = randInt(rng, 1, h - 1);
+
+          return [
+            ...randomPartition(r, c, split, w, maxArea, rng),
+            ...randomPartition(r + split, c, h - split, w, maxArea, rng)
+          ];
+        }
+
+        const split = randInt(rng, 1, w - 1);
+
+        return [
+          ...randomPartition(r, c, h, split, maxArea, rng),
+          ...randomPartition(r, c + split, h, w - split, maxArea, rng)
+        ];
+      }
+
+      function generatePuzzle(rows, cols, rng) {
+        const total = rows * cols;
+        const maxArea = getMaxArea(Math.max(rows, cols));
+
+        let minRects = Math.max(
+          3,
+          Math.ceil(total / maxArea),
+          Math.floor(total / 45)
+        );
+
+        let maxRects = Math.max(
+          minRects,
+          Math.min(160, Math.floor(total / 3))
+        );
+
+        if (minRects > maxRects) {
+          minRects = maxRects;
+        }
+
+        for (let attempt = 0; attempt < 60; attempt++) {
+          const parts = randomPartition(0, 0, rows, cols, maxArea, rng);
+
+          if (parts.length >= minRects && parts.length <= maxRects) {
+            return {
+              rows,
+              cols,
+              clues: parts.map((part) => ({
+                r: randInt(rng, part.r, part.r + part.h - 1),
+                c: randInt(rng, part.c, part.c + part.w - 1),
+                value: part.h * part.w
+              }))
+            };
+          }
+        }
+
+        const parts = randomPartition(0, 0, rows, cols, maxArea, rng);
+
+        return {
+          rows,
+          cols,
+          clues: parts.map((part) => ({
+            r: randInt(rng, part.r, part.r + part.h - 1),
+            c: randInt(rng, part.c, part.c + part.w - 1),
+            value: part.h * part.w
+          }))
+        };
+      }
+
+      const LEVELS = [];
+
+      for (let size = 3; size <= 20; size++) {
+        const number = size - 2;
+        const name = `Уровень ${number} · ${size}×${size}`;
+
+        const staticLevel = STATIC_LEVELS.find(
+          (item) => item.rows === size && item.cols === size
+        );
+
+        if (staticLevel) {
+          LEVELS.push({
+            name,
+            puzzle: staticLevel
+          });
+        } else {
+          LEVELS.push({
+            name,
+            rows: size,
+            cols: size,
+            seed: (size * 1013904223 + 12345) >>> 0,
+            cache: null
+          });
+        }
+      }
 
       let puzzle = null;
       let clueGrid = [];
@@ -245,10 +402,6 @@
 
       let suppressPlaceAfterClickRemove = false;
       let pointerStart = null;
-
-      function randInt(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-      }
 
       function rectArea(rect) {
         return (rect.r2 - rect.r1 + 1) * (rect.c2 - rect.c1 + 1);
@@ -297,8 +450,8 @@
         const availableWidth = Math.max(220, wrap.clientWidth || 520);
 
         cellSize = Math.max(
-          30,
-          Math.min(62, Math.floor(availableWidth / puzzle.cols))
+          26,
+          Math.min(60, Math.floor(availableWidth / puzzle.cols))
         );
 
         logicalW = puzzle.cols * cellSize;
@@ -490,7 +643,7 @@
         }
 
         if (isSolved()) {
-          statusEl.textContent = "🎉 Отлично! Головоломка решена.";
+          statusEl.textContent = "Головоломка решена.";
           return;
         }
 
@@ -583,9 +736,6 @@
       }
 
       function drawClues() {
-        const fontSize = Math.max(12, Math.floor(cellSize * 0.36));
-
-        ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.lineJoin = "round";
@@ -593,6 +743,13 @@
         for (const clue of puzzle.clues) {
           const x = clue.c * cellSize + cellSize / 2;
           const y = clue.r * cellSize + cellSize / 2;
+
+          const fontSize = Math.max(
+            10,
+            Math.floor(cellSize * (clue.value >= 10 ? 0.30 : 0.38))
+          );
+
+          ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
 
           ctx.lineWidth = 4;
           ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
@@ -749,7 +906,7 @@
 
       checkBtn.addEventListener("click", () => {
         if (isSolved()) {
-          updateStatus("Решено! Все прямоугольники правильные.");
+          updateStatus("Решено. Все прямоугольники правильные.");
         } else {
           const total = puzzle.rows * puzzle.cols;
           const filled = filledCount();
@@ -767,74 +924,33 @@
         draw();
       });
 
-      function randomPartition(r, c, h, w, maxArea) {
-        const area = h * w;
+      function selectLevel(index) {
+        const level = LEVELS[index];
 
-        if (area <= 1) {
-          return [{ r, c, h, w }];
+        if (!level) return;
+
+        if (level.puzzle) {
+          loadPuzzle(level.puzzle);
+          return;
         }
 
-        if (area <= maxArea) {
-          if (area <= 3 || Math.random() < 0.28) {
-            return [{ r, c, h, w }];
-          }
+        if (level.cache) {
+          loadPuzzle(level.cache);
+          return;
         }
 
-        let horizontal;
+        updateStatus("Генерируем уровень...");
 
-        if (h === 1) {
-          horizontal = false;
-        } else if (w === 1) {
-          horizontal = true;
-        } else if (h > w) {
-          horizontal = Math.random() < 0.72;
-        } else if (w > h) {
-          horizontal = Math.random() < 0.28;
-        } else {
-          horizontal = Math.random() < 0.5;
-        }
+        setTimeout(() => {
+          level.cache = generatePuzzle(
+            level.rows,
+            level.cols,
+            mulberry32(level.seed)
+          );
 
-        if (horizontal) {
-          const split = randInt(1, h - 1);
-
-          return [
-            ...randomPartition(r, c, split, w, maxArea),
-            ...randomPartition(r + split, c, h - split, w, maxArea)
-          ];
-        }
-
-        const split = randInt(1, w - 1);
-
-        return [
-          ...randomPartition(r, c, h, split, maxArea),
-          ...randomPartition(r, c + split, h, w - split, maxArea)
-        ];
-      }
-
-      function generateRandomPuzzle(rows, cols) {
-        const total = rows * cols;
-        const maxArea = rows <= 5 ? 8 : rows <= 6 ? 9 : 10;
-
-        const minRects = Math.max(4, Math.ceil(total / 7));
-        const maxRects = Math.floor(total / 2);
-
-        for (let attempt = 0; attempt < 40; attempt++) {
-          const parts = randomPartition(0, 0, rows, cols, maxArea);
-
-          if (parts.length < minRects || parts.length > maxRects) {
-            continue;
-          }
-
-          const clues = parts.map((part) => ({
-            r: randInt(part.r, part.r + part.h - 1),
-            c: randInt(part.c, part.c + part.w - 1),
-            value: part.h * part.w
-          }));
-
-          return { rows, cols, clues };
-        }
-
-        return clonePuzzle(LEVELS[0]);
+          loadPuzzle(level.cache);
+          updateStatus("Уровень готов.");
+        }, 20);
       }
 
       randomBtn.addEventListener("click", () => {
@@ -842,11 +958,12 @@
 
         setTimeout(() => {
           const size = Number(sizeSelect.value);
-          const generated = generateRandomPuzzle(size, size);
+
+          const generated = generatePuzzle(size, size, () => Math.random());
 
           loadPuzzle(generated);
           updateStatus("Новая головоломка готова.");
-        }, 30);
+        }, 20);
       });
 
       window.addEventListener("keydown", (event) => {
@@ -870,10 +987,22 @@
       });
 
       levelSelect.addEventListener("change", () => {
-        loadPuzzle(LEVELS[levelSelect.value]);
+        selectLevel(Number(levelSelect.value));
       });
 
-      loadPuzzle(LEVELS[0]);
+      for (let size = 3; size <= 20; size++) {
+        const option = document.createElement("option");
+        option.value = size;
+        option.textContent = `${size}×${size}`;
+
+        if (size === 6) {
+          option.selected = true;
+        }
+
+        sizeSelect.appendChild(option);
+      }
+
+      selectLevel(0);
     })();
   </script>
 </body>
