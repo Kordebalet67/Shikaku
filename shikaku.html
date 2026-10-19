@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Сикаку</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.14), transparent 30%),
+        radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.12), transparent 28%),
+        linear-gradient(135deg, #eef2ff, #f8fafc);
+    }
+
+    .app {
+      width: min(94vw, 640px);
+      padding: 20px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(14px);
+      box-shadow:
+        0 20px 60px rgba(15, 23, 42, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    h1 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin: 8px 0 14px;
+      color: #475569;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    select,
+    button {
+      appearance: none;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 14px;
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      cursor: pointer;
+      transition:
+        transform 120ms ease,
+        box-shadow 120ms ease;
+    }
+
+    select:hover,
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.primary {
+      background: #0f172a;
+      color: #fff;
+      border-color: #0f172a;
+    }
+
+    .board-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      touch-action: none;
+      background: #fff;
+      box-shadow:
+        inset 0 0 0 1px rgba(15, 23, 42, 0.06),
+        0 10px 30px rgba(15, 23, 42, 0.08);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 22px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    @media (max-width: 480px) {
+      .app {
+        padding: 14px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      select,
+      button {
+        flex: 1 1 auto;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Сикаку</h1>
+    <p class="subtitle">
+      Разделите поле на прямоугольники так, чтобы в каждом прямоугольнике было ровно одно число.
+      Это число равно площади прямоугольника.
+      Нажмите на готовый прямоугольник, чтобы удалить его. Тяните мышью или пальцем, чтобы построить новый.
+    </p>
+
+    <div class="toolbar">
+      <select id="levelSelect" aria-label="Выбор уровня"></select>
+
+      <select id="sizeSelect" aria-label="Размер случайного поля">
+        <option value="5">5×5</option>
+        <option value="6" selected>6×6</option>
+        <option value="7">7×7</option>
+      </select>
+
+      <button id="randomBtn" class="primary">Новая случайная</button>
+      <button id="undoBtn">Отменить</button>
+      <button id="clearBtn">Очистить</button>
+      <button id="checkBtn">Проверить</button>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="game"></canvas>
+    </div>
+
+    <div id="status" class="status"></div>
+  </main>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const statusEl = document.getElementById("status");
+      const levelSelect = document.getElementById("levelSelect");
+      const sizeSelect = document.getElementById("sizeSelect");
+      const randomBtn = document.getElementById("randomBtn");
+      const undoBtn = document.getElementById("undoBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const checkBtn = document.getElementById("checkBtn");
+
+      const LEVELS = [
+        {
+          name: "Уровень 1 · 3×3",
+          rows: 3,
+          cols: 3,
+          clues: [
+            { r: 0, c: 0, value: 4 },
+            { r: 0, c: 2, value: 3 },
+            { r: 2, c: 0, value: 2 }
+          ]
+        },
+        {
+          name: "Уровень 2 · 4×4",
+          rows: 4,
+          cols: 4,
+          clues: [
+            { r: 1, c: 1, value: 4 },
+            { r: 0, c: 2, value: 2 },
+            { r: 0, c: 3, value: 4 },
+            { r: 3, c: 0, value: 4 },
+            { r: 2, c: 2, value: 2 }
+          ]
+        },
+        {
+          name: "Уровень 3 · 5×5",
+          rows: 5,
+          cols: 5,
+          clues: [
+            { r: 0, c: 0, value: 6 },
+            { r: 0, c: 4, value: 4 },
+            { r: 4, c: 0, value: 6 },
+            { r: 2, c: 2, value: 4 },
+            { r: 2, c: 4, value: 2 },
+            { r: 4, c: 4, value: 3 }
+          ]
+        },
+        {
+          name: "Уровень 4 · 6×6",
+          rows: 6,
+          cols: 6,
+          clues: [
+            { r: 0, c: 3, value: 8 },
+            { r: 0, c: 4, value: 4 },
+            { r: 2, c: 0, value: 4 },
+            { r: 2, c: 2, value: 6 },
+            { r: 2, c: 5, value: 2 },
+            { r: 4, c: 0, value: 6 },
+            { r: 4, c: 5, value: 6 }
+          ]
+        }
+      ];
+
+      let puzzle = null;
+      let clueGrid = [];
+      let board = [];
+      let rects = [];
+      let history = [];
+      let nextId = 1;
+
+      let cellSize = 52;
+      let logicalW = 0;
+      let logicalH = 0;
+
+      const drawing = {
+        active: false,
+        start: null,
+        current: null
+      };
+
+      let suppressPlaceAfterClickRemove = false;
+      let pointerStart = null;
+
+      function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      function rectArea(rect) {
+        return (rect.r2 - rect.r1 + 1) * (rect.c2 - rect.c1 + 1);
+      }
+
+      function clonePuzzle(source) {
+        return {
+          rows: source.rows,
+          cols: source.cols,
+          clues: source.clues.map((clue) => ({ ...clue }))
+        };
+      }
+
+      function buildClueGrid() {
+        clueGrid = Array.from(
+          { length: puzzle.rows },
+          () => Array(puzzle.cols).fill(null)
+        );
+
+        for (const clue of puzzle.clues) {
+          clueGrid[clue.r][clue.c] = clue.value;
+        }
+      }
+
+      function makeEmptyBoard() {
+        return Array.from(
+          { length: puzzle.rows },
+          () => Array(puzzle.cols).fill(null)
+        );
+      }
+
+      function rebuildBoard() {
+        board = makeEmptyBoard();
+
+        for (const rect of rects) {
+          for (let r = rect.r1; r <= rect.r2; r++) {
+            for (let c = rect.c1; c <= rect.c2; c++) {
+              board[r][c] = rect.id;
+            }
+          }
+        }
+      }
+
+      function setupCanvas() {
+        const wrap = canvas.parentElement;
+        const availableWidth = Math.max(220, wrap.clientWidth || 520);
+
+        cellSize = Math.max(
+          30,
+          Math.min(62, Math.floor(availableWidth / puzzle.cols))
+        );
+
+        logicalW = puzzle.cols * cellSize;
+        logicalH = puzzle.rows * cellSize;
+
+        const dpr = window.devicePixelRatio || 1;
+
+        canvas.width = logicalW * dpr;
+        canvas.height = logicalH * dpr;
+
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = logicalW + "px";
+        canvas.style.height = "auto";
+        canvas.style.aspectRatio = `${puzzle.cols} / ${puzzle.rows}`;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function loadPuzzle(source) {
+        puzzle = clonePuzzle(source);
+        buildClueGrid();
+        board = makeEmptyBoard();
+        rects = [];
+        history = [];
+        nextId = 1;
+
+        drawing.active = false;
+        drawing.start = null;
+        drawing.current = null;
+
+        suppressPlaceAfterClickRemove = false;
+        pointerStart = null;
+
+        setupCanvas();
+        updateStatus();
+        draw();
+      }
+
+      function pushHistory() {
+        history.push({
+          rects: rects.map((rect) => ({ ...rect })),
+          nextId
+        });
+
+        if (history.length > 100) {
+          history.shift();
+        }
+      }
+
+      function undo() {
+        if (!history.length) return;
+
+        const snapshot = history.pop();
+        rects = snapshot.rects;
+        nextId = snapshot.nextId;
+
+        rebuildBoard();
+
+        drawing.active = false;
+        drawing.start = null;
+        drawing.current = null;
+        suppressPlaceAfterClickRemove = false;
+        pointerStart = null;
+
+        updateStatus();
+        draw();
+      }
+
+      function clearAll() {
+        if (!rects.length) return;
+
+        pushHistory();
+        rects = [];
+        rebuildBoard();
+
+        drawing.active = false;
+        drawing.start = null;
+        drawing.current = null;
+        suppressPlaceAfterClickRemove = false;
+        pointerStart = null;
+
+        updateStatus();
+        draw();
+      }
+
+      function normalizeRect(a, b) {
+        return {
+          r1: Math.min(a.r, b.r),
+          c1: Math.min(a.c, b.c),
+          r2: Math.max(a.r, b.r),
+          c2: Math.max(a.c, b.c)
+        };
+      }
+
+      function isRectRuleValid(rect) {
+        let clues = 0;
+        let clueValue = 0;
+
+        for (let r = rect.r1; r <= rect.r2; r++) {
+          for (let c = rect.c1; c <= rect.c2; c++) {
+            const value = clueGrid[r][c];
+
+            if (value !== null) {
+              clues++;
+              clueValue = value;
+            }
+          }
+        }
+
+        return clues === 1 && rectArea(rect) === clueValue;
+      }
+
+      function canPlaceRect(rect) {
+        if (
+          rect.r1 < 0 ||
+          rect.c1 < 0 ||
+          rect.r2 >= puzzle.rows ||
+          rect.c2 >= puzzle.cols ||
+          rect.r1 > rect.r2 ||
+          rect.c1 > rect.c2
+        ) {
+          return false;
+        }
+
+        for (let r = rect.r1; r <= rect.r2; r++) {
+          for (let c = rect.c1; c <= rect.c2; c++) {
+            if (board[r][c] !== null) {
+              return false;
+            }
+          }
+        }
+
+        return isRectRuleValid(rect);
+      }
+
+      function filledCount() {
+        let count = 0;
+
+        for (let r = 0; r < puzzle.rows; r++) {
+          for (let c = 0; c < puzzle.cols; c++) {
+            if (board[r][c] !== null) count++;
+          }
+        }
+
+        return count;
+      }
+
+      function isSolved() {
+        if (filledCount() !== puzzle.rows * puzzle.cols) {
+          return false;
+        }
+
+        return rects.every((rect) => isRectRuleValid(rect));
+      }
+
+      function removeRectAtCell(cell) {
+        const id = board[cell.r][cell.c];
+
+        if (id === null) return;
+
+        pushHistory();
+        rects = rects.filter((rect) => rect.id !== id);
+        rebuildBoard();
+        updateStatus();
+      }
+
+      function addRectFromDrawing() {
+        if (!drawing.start || !drawing.current) return;
+
+        const rect = normalizeRect(drawing.start, drawing.current);
+
+        if (!canPlaceRect(rect)) return;
+
+        pushHistory();
+
+        rects.push({
+          ...rect,
+          id: nextId++
+        });
+
+        rebuildBoard();
+        updateStatus();
+      }
+
+      function updateStatus(customMessage) {
+        if (customMessage) {
+          statusEl.textContent = customMessage;
+          return;
+        }
+
+        if (isSolved()) {
+          statusEl.textContent = "🎉 Отлично! Головоломка решена.";
+          return;
+        }
+
+        if (!rects.length) {
+          statusEl.textContent =
+            "Начните: зажмите клетку и растяните прямоугольник вокруг числа.";
+          return;
+        }
+
+        const total = puzzle.rows * puzzle.cols;
+        const filled = filledCount();
+
+        statusEl.textContent = `Заполнено ${filled} из ${total} клеток.`;
+      }
+
+      function roundRectPath(x, y, w, h, r) {
+        const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+
+      function drawPlacedRect(rect) {
+        const x = rect.c1 * cellSize + 2;
+        const y = rect.r1 * cellSize + 2;
+        const w = (rect.c2 - rect.c1 + 1) * cellSize - 4;
+        const h = (rect.r2 - rect.r1 + 1) * cellSize - 4;
+
+        const hue = (rect.id * 57) % 360;
+
+        ctx.fillStyle = `hsl(${hue} 82% 86%)`;
+        ctx.strokeStyle = `hsl(${hue} 45% 50%)`;
+        ctx.lineWidth = 2;
+
+        roundRectPath(x, y, w, h, 9);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      function drawPreviewRect(rect) {
+        const valid = canPlaceRect(rect);
+
+        const x = rect.c1 * cellSize + 2;
+        const y = rect.r1 * cellSize + 2;
+        const w = (rect.c2 - rect.c1 + 1) * cellSize - 4;
+        const h = (rect.r2 - rect.r1 + 1) * cellSize - 4;
+
+        ctx.fillStyle = valid
+          ? "rgba(34, 197, 94, 0.22)"
+          : "rgba(239, 68, 68, 0.22)";
+
+        ctx.strokeStyle = valid
+          ? "rgba(34, 197, 94, 0.85)"
+          : "rgba(239, 68, 68, 0.85)";
+
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 5]);
+
+        roundRectPath(x, y, w, h, 9);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+      }
+
+      function drawGridLines() {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(15, 23, 42, 0.12)";
+
+        for (let r = 1; r < puzzle.rows; r++) {
+          const y = r * cellSize;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(logicalW, y);
+          ctx.stroke();
+        }
+
+        for (let c = 1; c < puzzle.cols; c++) {
+          const x = c * cellSize;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, logicalH);
+          ctx.stroke();
+        }
+      }
+
+      function drawClues() {
+        const fontSize = Math.max(12, Math.floor(cellSize * 0.36));
+
+        ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineJoin = "round";
+
+        for (const clue of puzzle.clues) {
+          const x = clue.c * cellSize + cellSize / 2;
+          const y = clue.r * cellSize + cellSize / 2;
+
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
+          ctx.strokeText(clue.value, x, y);
+
+          ctx.fillStyle = "#0f172a";
+          ctx.fillText(clue.value, x, y);
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, logicalW, logicalH);
+
+        ctx.save();
+
+        roundRectPath(0, 0, logicalW, logicalH, 16);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.clip();
+
+        for (let r = 0; r < puzzle.rows; r++) {
+          for (let c = 0; c < puzzle.cols; c++) {
+            if ((r + c) % 2 === 0) {
+              ctx.fillStyle = "rgba(148, 163, 184, 0.08)";
+              ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+
+        for (const rect of rects) {
+          drawPlacedRect(rect);
+        }
+
+        if (drawing.active && drawing.start && drawing.current) {
+          const previewRect = normalizeRect(drawing.start, drawing.current);
+          drawPreviewRect(previewRect);
+        }
+
+        drawGridLines();
+        drawClues();
+
+        ctx.restore();
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(15, 23, 42, 0.16)";
+        roundRectPath(1, 1, logicalW - 2, logicalH - 2, 15);
+        ctx.stroke();
+
+        if (isSolved()) {
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(34, 197, 94, 0.65)";
+          roundRectPath(2, 2, logicalW - 4, logicalH - 4, 14);
+          ctx.stroke();
+        }
+      }
+
+      function eventToCell(event) {
+        const bounds = canvas.getBoundingClientRect();
+
+        if (!bounds.width || !bounds.height) return null;
+
+        const x = (event.clientX - bounds.left) * (logicalW / bounds.width);
+        const y = (event.clientY - bounds.top) * (logicalH / bounds.height);
+
+        const r = Math.floor(y / cellSize);
+        const c = Math.floor(x / cellSize);
+
+        return {
+          r: Math.max(0, Math.min(puzzle.rows - 1, r)),
+          c: Math.max(0, Math.min(puzzle.cols - 1, c))
+        };
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+
+        const cell = eventToCell(event);
+        if (!cell) return;
+
+        try {
+          canvas.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Игнорируем, если браузер не поддерживает захват указателя.
+        }
+
+        pointerStart = {
+          x: event.clientX,
+          y: event.clientY
+        };
+
+        suppressPlaceAfterClickRemove = board[cell.r][cell.c] !== null;
+
+        if (suppressPlaceAfterClickRemove) {
+          removeRectAtCell(cell);
+        }
+
+        drawing.active = true;
+        drawing.start = cell;
+        drawing.current = cell;
+
+        draw();
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (!drawing.active) return;
+
+        event.preventDefault();
+
+        const cell = eventToCell(event);
+        if (!cell) return;
+
+        if (suppressPlaceAfterClickRemove && pointerStart) {
+          const dx = event.clientX - pointerStart.x;
+          const dy = event.clientY - pointerStart.y;
+
+          if (Math.hypot(dx, dy) > 5) {
+            suppressPlaceAfterClickRemove = false;
+          }
+        }
+
+        drawing.current = cell;
+        draw();
+      });
+
+      function finishDrawing(event) {
+        if (!drawing.active) return;
+
+        event.preventDefault();
+
+        drawing.active = false;
+
+        if (!suppressPlaceAfterClickRemove) {
+          addRectFromDrawing();
+        }
+
+        suppressPlaceAfterClickRemove = false;
+        pointerStart = null;
+        drawing.start = null;
+        drawing.current = null;
+
+        draw();
+      }
+
+      canvas.addEventListener("pointerup", finishDrawing);
+      canvas.addEventListener("pointercancel", finishDrawing);
+
+      canvas.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+      });
+
+      undoBtn.addEventListener("click", undo);
+
+      clearBtn.addEventListener("click", clearAll);
+
+      checkBtn.addEventListener("click", () => {
+        if (isSolved()) {
+          updateStatus("Решено! Все прямоугольники правильные.");
+        } else {
+          const total = puzzle.rows * puzzle.cols;
+          const filled = filledCount();
+          const remaining = total - filled;
+
+          if (remaining > 0) {
+            updateStatus(
+              `Пока заполнено ${filled} из ${total}. Осталось клеток: ${remaining}.`
+            );
+          } else {
+            updateStatus("Что-то не так. Проверьте прямоугольники.");
+          }
+        }
+
+        draw();
+      });
+
+      function randomPartition(r, c, h, w, maxArea) {
+        const area = h * w;
+
+        if (area <= 1) {
+          return [{ r, c, h, w }];
+        }
+
+        if (area <= maxArea) {
+          if (area <= 3 || Math.random() < 0.28) {
+            return [{ r, c, h, w }];
+          }
+        }
+
+        let horizontal;
+
+        if (h === 1) {
+          horizontal = false;
+        } else if (w === 1) {
+          horizontal = true;
+        } else if (h > w) {
+          horizontal = Math.random() < 0.72;
+        } else if (w > h) {
+          horizontal = Math.random() < 0.28;
+        } else {
+          horizontal = Math.random() < 0.5;
+        }
+
+        if (horizontal) {
+          const split = randInt(1, h - 1);
+
+          return [
+            ...randomPartition(r, c, split, w, maxArea),
+            ...randomPartition(r + split, c, h - split, w, maxArea)
+          ];
+        }
+
+        const split = randInt(1, w - 1);
+
+        return [
+          ...randomPartition(r, c, h, split, maxArea),
+          ...randomPartition(r, c + split, h, w - split, maxArea)
+        ];
+      }
+
+      function generateRandomPuzzle(rows, cols) {
+        const total = rows * cols;
+        const maxArea = rows <= 5 ? 8 : rows <= 6 ? 9 : 10;
+
+        const minRects = Math.max(4, Math.ceil(total / 7));
+        const maxRects = Math.floor(total / 2);
+
+        for (let attempt = 0; attempt < 40; attempt++) {
+          const parts = randomPartition(0, 0, rows, cols, maxArea);
+
+          if (parts.length < minRects || parts.length > maxRects) {
+            continue;
+          }
+
+          const clues = parts.map((part) => ({
+            r: randInt(part.r, part.r + part.h - 1),
+            c: randInt(part.c, part.c + part.w - 1),
+            value: part.h * part.w
+          }));
+
+          return { rows, cols, clues };
+        }
+
+        return clonePuzzle(LEVELS[0]);
+      }
+
+      randomBtn.addEventListener("click", () => {
+        updateStatus("Генерируем головоломку...");
+
+        setTimeout(() => {
+          const size = Number(sizeSelect.value);
+          const generated = generateRandomPuzzle(size, size);
+
+          loadPuzzle(generated);
+          updateStatus("Новая головоломка готова.");
+        }, 30);
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+          event.preventDefault();
+          undo();
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        if (!puzzle) return;
+        setupCanvas();
+        draw();
+      });
+
+      LEVELS.forEach((level, index) => {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = level.name;
+        levelSelect.appendChild(option);
+      });
+
+      levelSelect.addEventListener("change", () => {
+        loadPuzzle(LEVELS[levelSelect.value]);
+      });
+
+      loadPuzzle(LEVELS[0]);
+    })();
+  </script>
+</body>
+</html>
