@@ -4,7 +4,88 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Сикаку</title>
+
+  <script>
+    (function () {
+      var theme = "dark";
+
+      try {
+        var storedTheme = localStorage.getItem("shikaku-theme");
+        if (storedTheme === "light" || storedTheme === "dark") {
+          theme = storedTheme;
+        }
+      } catch (error) {
+        theme = "dark";
+      }
+
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+
   <style>
+    :root,
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+
+      --accent-1: rgba(59, 130, 246, 0.18);
+      --accent-2: rgba(16, 185, 129, 0.14);
+
+      --bg-1: #0f172a;
+      --bg-2: #020617;
+
+      --card-bg: rgba(15, 23, 42, 0.72);
+      --card-border: rgba(148, 163, 184, 0.16);
+      --card-shadow: 0 20px 60px rgba(2, 6, 23, 0.55);
+
+      --title: #f8fafc;
+      --subtitle: #94a3b8;
+      --status: #cbd5e1;
+
+      --control-bg: rgba(15, 23, 42, 0.9);
+      --control-border: rgba(148, 163, 184, 0.22);
+      --control-text: #e2e8f0;
+      --control-hover-shadow: 0 6px 18px rgba(2, 6, 23, 0.35);
+
+      --primary-bg: #e2e8f0;
+      --primary-text: #0f172a;
+      --primary-border: #cbd5e1;
+
+      --canvas-shadow:
+        inset 0 0 0 1px rgba(148, 163, 184, 0.10),
+        0 10px 30px rgba(2, 6, 23, 0.35);
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+
+      --accent-1: rgba(59, 130, 246, 0.14);
+      --accent-2: rgba(16, 185, 129, 0.12);
+
+      --bg-1: #eef2ff;
+      --bg-2: #f8fafc;
+
+      --card-bg: rgba(255, 255, 255, 0.82);
+      --card-border: rgba(255, 255, 255, 0.5);
+      --card-shadow: 0 20px 60px rgba(15, 23, 42, 0.14);
+
+      --title: #0f172a;
+      --subtitle: #475569;
+      --status: #334155;
+
+      --control-bg: rgba(255, 255, 255, 0.92);
+      --control-border: rgba(15, 23, 42, 0.12);
+      --control-text: #0f172a;
+      --control-hover-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+
+      --primary-bg: #0f172a;
+      --primary-text: #ffffff;
+      --primary-border: #0f172a;
+
+      --canvas-shadow:
+        inset 0 0 0 1px rgba(15, 23, 42, 0.06),
+        0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -16,33 +97,34 @@
       place-items: center;
       padding: 20px;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--control-text);
       background:
-        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.14), transparent 30%),
-        radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.12), transparent 28%),
-        linear-gradient(135deg, #eef2ff, #f8fafc);
+        radial-gradient(circle at 15% 15%, var(--accent-1), transparent 30%),
+        radial-gradient(circle at 85% 20%, var(--accent-2), transparent 28%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
     }
 
     .app {
+      position: relative;
       width: min(94vw, 640px);
       padding: 20px;
       border-radius: 24px;
-      background: rgba(255, 255, 255, 0.82);
+      background: var(--card-bg);
       backdrop-filter: blur(14px);
-      box-shadow:
-        0 20px 60px rgba(15, 23, 42, 0.14),
-        inset 0 1px 0 rgba(255, 255, 255, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--card-border);
     }
 
     h1 {
       margin: 0;
-      color: #0f172a;
+      color: var(--title);
       font-size: 28px;
+      padding-right: 52px;
     }
 
     .subtitle {
       margin: 8px 0 14px;
-      color: #475569;
+      color: var(--subtitle);
       line-height: 1.4;
       font-size: 14px;
     }
@@ -57,24 +139,25 @@
     select,
     button {
       appearance: none;
-      border: 1px solid rgba(15, 23, 42, 0.12);
+      border: 1px solid var(--control-border);
       border-radius: 12px;
       padding: 10px 12px;
       font: inherit;
       font-size: 14px;
-      color: #0f172a;
-      background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      color: var(--control-text);
+      background: var(--control-bg);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       cursor: pointer;
       transition:
         transform 120ms ease,
-        box-shadow 120ms ease;
+        box-shadow 120ms ease,
+        opacity 120ms ease;
     }
 
     select:hover,
     button:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+      box-shadow: var(--control-hover-shadow);
     }
 
     button:active {
@@ -82,9 +165,58 @@
     }
 
     button.primary {
-      background: #0f172a;
-      color: #fff;
-      border-color: #0f172a;
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      border-color: var(--primary-border);
+    }
+
+    select option {
+      background-color: var(--control-bg);
+      color: var(--control-text);
+    }
+
+    .theme-toggle {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      z-index: 2;
+    }
+
+    .theme-toggle:hover {
+      transform: translateY(-1px) scale(1.03);
+    }
+
+    .theme-toggle:active {
+      transform: translateY(0) scale(0.99);
+    }
+
+    .theme-toggle svg {
+      width: 20px;
+      height: 20px;
+      display: none;
+      pointer-events: none;
+    }
+
+    :root[data-theme="dark"] .icon-sun {
+      display: block;
+    }
+
+    :root[data-theme="dark"] .icon-moon {
+      display: none;
+    }
+
+    :root[data-theme="light"] .icon-sun {
+      display: none;
+    }
+
+    :root[data-theme="light"] .icon-moon {
+      display: block;
     }
 
     .board-wrap {
@@ -100,10 +232,8 @@
       height: auto;
       border-radius: 16px;
       touch-action: none;
-      background: #fff;
-      box-shadow:
-        inset 0 0 0 1px rgba(15, 23, 42, 0.06),
-        0 10px 30px rgba(15, 23, 42, 0.08);
+      background: transparent;
+      box-shadow: var(--canvas-shadow);
       user-select: none;
       -webkit-user-select: none;
     }
@@ -113,7 +243,7 @@
       min-height: 22px;
       font-size: 14px;
       font-weight: 600;
-      color: #334155;
+      color: var(--status);
     }
 
     @media (max-width: 480px) {
@@ -123,6 +253,7 @@
 
       h1 {
         font-size: 24px;
+        padding-right: 48px;
       }
 
       select,
@@ -130,11 +261,53 @@
         flex: 1 1 auto;
         text-align: center;
       }
+
+      .theme-toggle {
+        top: 12px;
+        right: 12px;
+        width: 40px;
+        height: 40px;
+      }
     }
   </style>
 </head>
 <body>
   <main class="app">
+    <button
+      id="themeBtn"
+      class="theme-toggle"
+      type="button"
+      aria-label="Переключить тему"
+      title="Переключить тему"
+    >
+      <svg
+        class="icon-sun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+      </svg>
+
+      <svg
+        class="icon-moon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+
     <h1>Сикаку</h1>
     <p class="subtitle">
       Разделите поле на прямоугольники так, чтобы в каждом прямоугольнике было ровно одно число.
@@ -167,6 +340,7 @@
       const statusEl = document.getElementById("status");
       const levelSelect = document.getElementById("levelSelect");
       const sizeSelect = document.getElementById("sizeSelect");
+      const themeBtn = document.getElementById("themeBtn");
       const randomBtn = document.getElementById("randomBtn");
       const undoBtn = document.getElementById("undoBtn");
       const clearBtn = document.getElementById("clearBtn");
@@ -402,6 +576,72 @@
 
       let suppressPlaceAfterClickRemove = false;
       let pointerStart = null;
+
+      function currentTheme() {
+        return document.documentElement.getAttribute("data-theme") || "dark";
+      }
+
+      function updateThemeButton() {
+        const theme = currentTheme();
+
+        const label = theme === "dark"
+          ? "Включить светлую тему"
+          : "Включить темную тему";
+
+        themeBtn.setAttribute("aria-label", label);
+        themeBtn.setAttribute("title", label);
+      }
+
+      function setTheme(theme) {
+        document.documentElement.setAttribute("data-theme", theme);
+
+        try {
+          localStorage.setItem("shikaku-theme", theme);
+        } catch (error) {
+          // Если хранилище недоступно, тема просто не сохраняется.
+        }
+
+        updateThemeButton();
+        draw();
+      }
+
+      function themePalette() {
+        const theme = currentTheme();
+
+        if (theme === "light") {
+          return {
+            board: "#ffffff",
+            checker: "rgba(148, 163, 184, 0.08)",
+            grid: "rgba(15, 23, 42, 0.12)",
+            border: "rgba(15, 23, 42, 0.16)",
+            clueText: "#0f172a",
+            clueHalo: "rgba(255, 255, 255, 0.78)",
+            placedFill: (hue) => `hsl(${hue}, 82%, 86%)`,
+            placedStroke: (hue) => `hsl(${hue}, 45%, 50%)`,
+            validFill: "rgba(34, 197, 94, 0.22)",
+            validStroke: "rgba(34, 197, 94, 0.85)",
+            invalidFill: "rgba(239, 68, 68, 0.22)",
+            invalidStroke: "rgba(239, 68, 68, 0.85)",
+            solved: "rgba(34, 197, 94, 0.65)"
+          };
+        }
+
+        return {
+          board: "#0b1220",
+          checker: "rgba(148, 163, 184, 0.06)",
+          grid: "rgba(148, 163, 184, 0.16)",
+          border: "rgba(148, 163, 184, 0.24)",
+          clueText: "#f8fafc",
+          clueHalo: "rgba(2, 6, 23, 0.55)",
+          placedFill: (hue) => `hsl(${hue}, 50%, 26%)`,
+          placedStroke: (hue) => `hsl(${hue}, 75%, 62%)`,
+          validFill: "rgba(34, 197, 94, 0.20)",
+          validStroke: "rgba(34, 197, 94, 0.85)",
+          invalidFill: "rgba(239, 68, 68, 0.22)",
+          invalidStroke: "rgba(239, 68, 68, 0.85)",
+          solved: "rgba(34, 197, 94, 0.62)"
+        };
+      }
 
       function rectArea(rect) {
         return (rect.r2 - rect.r1 + 1) * (rect.c2 - rect.c1 + 1);
@@ -671,7 +911,7 @@
         ctx.closePath();
       }
 
-      function drawPlacedRect(rect) {
+      function drawPlacedRect(rect, palette) {
         const x = rect.c1 * cellSize + 2;
         const y = rect.r1 * cellSize + 2;
         const w = (rect.c2 - rect.c1 + 1) * cellSize - 4;
@@ -679,8 +919,8 @@
 
         const hue = (rect.id * 57) % 360;
 
-        ctx.fillStyle = `hsl(${hue} 82% 86%)`;
-        ctx.strokeStyle = `hsl(${hue} 45% 50%)`;
+        ctx.fillStyle = palette.placedFill(hue);
+        ctx.strokeStyle = palette.placedStroke(hue);
         ctx.lineWidth = 2;
 
         roundRectPath(x, y, w, h, 9);
@@ -688,7 +928,7 @@
         ctx.stroke();
       }
 
-      function drawPreviewRect(rect) {
+      function drawPreviewRect(rect, palette) {
         const valid = canPlaceRect(rect);
 
         const x = rect.c1 * cellSize + 2;
@@ -696,13 +936,8 @@
         const w = (rect.c2 - rect.c1 + 1) * cellSize - 4;
         const h = (rect.r2 - rect.r1 + 1) * cellSize - 4;
 
-        ctx.fillStyle = valid
-          ? "rgba(34, 197, 94, 0.22)"
-          : "rgba(239, 68, 68, 0.22)";
-
-        ctx.strokeStyle = valid
-          ? "rgba(34, 197, 94, 0.85)"
-          : "rgba(239, 68, 68, 0.85)";
+        ctx.fillStyle = valid ? palette.validFill : palette.invalidFill;
+        ctx.strokeStyle = valid ? palette.validStroke : palette.invalidStroke;
 
         ctx.lineWidth = 2;
         ctx.setLineDash([7, 5]);
@@ -714,9 +949,9 @@
         ctx.setLineDash([]);
       }
 
-      function drawGridLines() {
+      function drawGridLines(palette) {
         ctx.lineWidth = 1;
-        ctx.strokeStyle = "rgba(15, 23, 42, 0.12)";
+        ctx.strokeStyle = palette.grid;
 
         for (let r = 1; r < puzzle.rows; r++) {
           const y = r * cellSize;
@@ -735,7 +970,7 @@
         }
       }
 
-      function drawClues() {
+      function drawClues(palette) {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.lineJoin = "round";
@@ -752,55 +987,57 @@
           ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
 
           ctx.lineWidth = 4;
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
+          ctx.strokeStyle = palette.clueHalo;
           ctx.strokeText(clue.value, x, y);
 
-          ctx.fillStyle = "#0f172a";
+          ctx.fillStyle = palette.clueText;
           ctx.fillText(clue.value, x, y);
         }
       }
 
       function draw() {
+        const palette = themePalette();
+
         ctx.clearRect(0, 0, logicalW, logicalH);
 
         ctx.save();
 
         roundRectPath(0, 0, logicalW, logicalH, 16);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = palette.board;
         ctx.fill();
         ctx.clip();
 
         for (let r = 0; r < puzzle.rows; r++) {
           for (let c = 0; c < puzzle.cols; c++) {
             if ((r + c) % 2 === 0) {
-              ctx.fillStyle = "rgba(148, 163, 184, 0.08)";
+              ctx.fillStyle = palette.checker;
               ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
             }
           }
         }
 
         for (const rect of rects) {
-          drawPlacedRect(rect);
+          drawPlacedRect(rect, palette);
         }
 
         if (drawing.active && drawing.start && drawing.current) {
           const previewRect = normalizeRect(drawing.start, drawing.current);
-          drawPreviewRect(previewRect);
+          drawPreviewRect(previewRect, palette);
         }
 
-        drawGridLines();
-        drawClues();
+        drawGridLines(palette);
+        drawClues(palette);
 
         ctx.restore();
 
         ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(15, 23, 42, 0.16)";
+        ctx.strokeStyle = palette.border;
         roundRectPath(1, 1, logicalW - 2, logicalH - 2, 15);
         ctx.stroke();
 
         if (isSolved()) {
           ctx.lineWidth = 4;
-          ctx.strokeStyle = "rgba(34, 197, 94, 0.65)";
+          ctx.strokeStyle = palette.solved;
           roundRectPath(2, 2, logicalW - 4, logicalH - 4, 14);
           ctx.stroke();
         }
@@ -898,6 +1135,10 @@
 
       canvas.addEventListener("contextmenu", (event) => {
         event.preventDefault();
+      });
+
+      themeBtn.addEventListener("click", () => {
+        setTheme(currentTheme() === "dark" ? "light" : "dark");
       });
 
       undoBtn.addEventListener("click", undo);
@@ -1002,6 +1243,7 @@
         sizeSelect.appendChild(option);
       }
 
+      updateThemeButton();
       selectLevel(0);
     })();
   </script>
